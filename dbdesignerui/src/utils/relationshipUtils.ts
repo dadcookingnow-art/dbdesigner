@@ -30,7 +30,7 @@ export const calculateTableHeight = (fieldsCount: number): number => {
 
 // 테이블 경계 박스 계산 (scaled 적용)
 export const getTableBounds = (table: Table) => {
-  const { WIDTH, BORDER_WIDTH, SCALE_FACTOR } = TABLE_DIMENSIONS
+  const { WIDTH, SCALE_FACTOR } = TABLE_DIMENSIONS
   const originalHeight = calculateTableHeight(table.fields.length)
   
   // CSS transform scale(0.8) with transform-origin: top left 적용된 실제 크기

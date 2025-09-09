@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X, Plus, Trash2, Database } from 'lucide-react';
 import { Field, Table, Index } from '../../types';
 
@@ -6,6 +6,8 @@ interface TableCreationModalProps {
   isOpen: boolean;
   onClose: () => void;
   onCreateTable: (table: Table) => void;
+  onUpdateTable?: (table: Table) => void;
+  editingTable?: Table | null;
   dbType?: string;
 }
 
@@ -30,7 +32,14 @@ const getDbTypeFields = (dbType: string) => {
   return commonTypes[dbType as keyof typeof commonTypes] || commonTypes.mysql;
 };
 
-export default function TableCreationModal({ isOpen, onClose, onCreateTable, dbType = 'mysql' }: TableCreationModalProps) {
+export default function TableCreationModal({ 
+  isOpen, 
+  onClose, 
+  onCreateTable, 
+  onUpdateTable,
+  editingTable,
+  dbType = 'mysql' 
+}: TableCreationModalProps) {
   const [tableName, setTableName] = useState('');
   const [tableComment, setTableComment] = useState('');
   const [fields, setFields] = useState<Field[]>([
@@ -44,20 +53,128 @@ export default function TableCreationModal({ isOpen, onClose, onCreateTable, dbT
   ]);
   const [indexes, setIndexes] = useState<Index[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  
+  // 드래그 관련 상태
+  const modalRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [modalPosition, setModalPosition] = useState({ x: 0, y: 0 });
 
   const availableTypes = getDbTypeFields(dbType);
+  const isEditMode = !!editingTable;
+
+  // 필드 정규화 함수 - undefined 값을 기본값으로 변환
+  const normalizeField = (field: Field): Field => ({
+    name: field.name || '',
+    type: field.type || availableTypes[0],
+    isPrimaryKey: field.isPrimaryKey || false,
+    isRequired: field.isRequired || false,
+    isAutoIncrement: field.isAutoIncrement || false,
+    isUnique: field.isUnique || false,
+    defaultValue: field.defaultValue ?? '',
+    checkConstraint: field.checkConstraint ?? '',
+    comment: field.comment ?? '',
+    isForeignKey: field.isForeignKey || false,
+    referencedTable: field.referencedTable || '',
+    referencedField: field.referencedField || '',
+    constraints: field.constraints || ''
+  });
+
+  // 편집 모드일 때 기존 테이블 데이터 로드
+  useEffect(() => {
+    if (isOpen && editingTable) {
+      setTableName(editingTable.name || '');
+      setTableComment(editingTable.comment || '');
+      setFields(editingTable.fields.map(normalizeField));
+      setIndexes(editingTable.indexes || []);
+    } else if (isOpen && !editingTable) {
+      // 새 테이블 생성 모드일 때 기본값 설정
+      setTableName('');
+      setTableComment('');
+      setFields([
+        normalizeField({ 
+          name: 'id', 
+          type: availableTypes[0], 
+          isPrimaryKey: true, 
+          isRequired: true,
+          isAutoIncrement: true
+        } as Field)
+      ]);
+      setIndexes([]);
+    }
+  }, [isOpen, editingTable]); // availableTypes 제거
+
+  // 드래그 핸들러들 (useEffect보다 먼저 선언)
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!modalRef.current) return;
+    
+    const rect = modalRef.current.getBoundingClientRect();
+    setDragOffset({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    });
+    setIsDragging(true);
+  };
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!isDragging || !modalRef.current) return;
+    
+    const newX = e.clientX - dragOffset.x;
+    const newY = e.clientY - dragOffset.y;
+    
+    // 화면 경계 체크
+    const maxX = window.innerWidth - modalRef.current.offsetWidth;
+    const maxY = window.innerHeight - modalRef.current.offsetHeight;
+    
+    const clampedX = Math.max(0, Math.min(newX, maxX));
+    const clampedY = Math.max(0, Math.min(newY, maxY));
+    
+    setModalPosition({ x: clampedX, y: clampedY });
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  // 드래그 이벤트 리스너 등록
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isDragging, dragOffset]);
+
+  // 모달이 열릴 때 중앙 위치 설정
+  useEffect(() => {
+    if (isOpen && modalRef.current && modalPosition.x === 0 && modalPosition.y === 0) {
+      const modalWidth = modalRef.current.offsetWidth;
+      const modalHeight = modalRef.current.offsetHeight;
+      const centerX = (window.innerWidth - modalWidth) / 2;
+      const centerY = (window.innerHeight - modalHeight) / 2;
+      
+      setModalPosition({
+        x: Math.max(0, centerX),
+        y: Math.max(0, centerY)
+      });
+    }
+  }, [isOpen, modalPosition]);
 
   if (!isOpen) return null;
 
   const handleAddField = () => {
-    setFields(prev => [...prev, {
+    setFields(prev => [...prev, normalizeField({
       name: '',
       type: availableTypes[0],
       isPrimaryKey: false,
       isRequired: false,
       isAutoIncrement: false,
       isUnique: false
-    }]);
+    } as Field)]);
   };
 
   const handleRemoveField = (index: number) => {
@@ -109,22 +226,27 @@ export default function TableCreationModal({ isOpen, onClose, onCreateTable, dbT
 
     setIsLoading(true);
     try {
-      const newTable: Table = {
-        id: `t${Date.now()}`,
+      const tableData: Table = {
+        id: isEditMode ? editingTable!.id : `t${Date.now()}`,
         name: tableName.trim(),
         fields: validFields.map(f => ({
           ...f,
           name: f.name.trim()
         })),
         indexes: indexes.filter(idx => idx.name.trim() && idx.fields.length > 0),
-        position: { 
+        position: isEditMode ? editingTable!.position : { 
           x: Math.random() * 300 + 50, 
           y: Math.random() * 200 + 100 
         },
         comment: tableComment.trim() || undefined
       };
       
-      onCreateTable(newTable);
+      if (isEditMode) {
+        onUpdateTable?.(tableData);
+      } else {
+        onCreateTable(tableData);
+      }
+      
       handleClose();
     } finally {
       setIsLoading(false);
@@ -142,17 +264,33 @@ export default function TableCreationModal({ isOpen, onClose, onCreateTable, dbT
       isAutoIncrement: true 
     }]);
     setIndexes([]);
+    setModalPosition({ x: 0, y: 0 }); // 모달 위치 리셋
     onClose();
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
-        <div className="flex items-center justify-between p-6 border-b">
-          <h2 className="text-xl font-semibold text-gray-900">새 테이블 만들기</h2>
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50">
+      <div 
+        ref={modalRef}
+        className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden"
+        style={{
+          position: 'absolute',
+          left: `${modalPosition.x}px`,
+          top: `${modalPosition.y}px`,
+          cursor: isDragging ? 'grabbing' : 'default'
+        }}
+      >
+        <div 
+          className="flex items-center justify-between p-6 border-b cursor-grab active:cursor-grabbing select-none"
+          onMouseDown={handleMouseDown}
+        >
+          <h2 className="text-xl font-semibold text-gray-900 pointer-events-none">
+            {isEditMode ? '테이블 편집' : '새 테이블 만들기'}
+          </h2>
           <button
             onClick={handleClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+            onMouseDown={(e) => e.stopPropagation()} // 닫기 버튼 클릭 시 드래그 방지
           >
             <X className="w-5 h-5 text-gray-500" />
           </button>
@@ -285,7 +423,7 @@ export default function TableCreationModal({ isOpen, onClose, onCreateTable, dbT
                       <label className="block text-xs font-medium text-gray-600 mb-1">기본값</label>
                       <input
                         type="text"
-                        value={field.defaultValue || ''}
+                        value={field.defaultValue ?? ''}
                         onChange={(e) => handleFieldChange(index, { defaultValue: e.target.value })}
                         placeholder="기본값"
                         className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -296,7 +434,7 @@ export default function TableCreationModal({ isOpen, onClose, onCreateTable, dbT
                       <label className="block text-xs font-medium text-gray-600 mb-1">체크 제약조건</label>
                       <input
                         type="text"
-                        value={field.checkConstraint || ''}
+                        value={field.checkConstraint ?? ''}
                         onChange={(e) => handleFieldChange(index, { checkConstraint: e.target.value })}
                         placeholder="예: age >= 0"
                         className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -307,7 +445,7 @@ export default function TableCreationModal({ isOpen, onClose, onCreateTable, dbT
                       <label className="block text-xs font-medium text-gray-600 mb-1">코멘트</label>
                       <input
                         type="text"
-                        value={field.comment || ''}
+                        value={field.comment ?? ''}
                         onChange={(e) => handleFieldChange(index, { comment: e.target.value })}
                         placeholder="필드 설명"
                         className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -411,7 +549,10 @@ export default function TableCreationModal({ isOpen, onClose, onCreateTable, dbT
               disabled={isLoading || !tableName.trim()}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isLoading ? '생성 중...' : '테이블 만들기'}
+              {isLoading 
+                ? (isEditMode ? '수정 중...' : '생성 중...') 
+                : (isEditMode ? '테이블 수정' : '테이블 만들기')
+              }
             </button>
           </div>
         </form>

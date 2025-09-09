@@ -163,6 +163,36 @@ export const useProjectState = () => {
     }
   }
 
+  // 테이블 수정
+  const updateTable = async (updatedTable: Table) => {
+    if (!currentProject) return
+
+    try {
+      await projectService.updateTable(currentProject.id, updatedTable.id, {
+        name: updatedTable.name,
+        fields: updatedTable.fields,
+        indexes: updatedTable.indexes,
+        comment: updatedTable.comment,
+        position: updatedTable.position
+      })
+      
+      const updatedProject = {
+        ...currentProject,
+        tables: currentProject.tables.map(table => 
+          table.id === updatedTable.id ? updatedTable : table
+        )
+      }
+
+      setCurrentProject(updatedProject)
+      setProjects(prev => prev.map(p => p.id === currentProject.id ? updatedProject : p))
+      
+      console.log('✅ 테이블 수정 완료:', updatedTable.name)
+    } catch (error: any) {
+      console.error('❌ 테이블 수정 실패:', error)
+      throw new Error(error.message || '테이블 수정에 실패했습니다.')
+    }
+  }
+
   // 프로젝트 로딩
   const loadProject = useCallback(async (projectId: string, abortSignal?: AbortSignal) => {
     try {
@@ -294,6 +324,7 @@ export const useProjectState = () => {
     deleteRelationship,
     updateRelationship,
     addTable,
+    updateTable,
     loadProject,
     saveDiagramState,
     loadDiagramState,

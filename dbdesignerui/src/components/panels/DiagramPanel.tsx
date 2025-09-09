@@ -1,4 +1,4 @@
-import React, { useRef, useCallback } from 'react'
+import React, { useRef, useCallback, useState, useEffect } from 'react'
 import { Database, Save, Loader2 } from 'lucide-react'
 import { Project } from '../../types'
 import { TableCard } from '../diagram/TableCard'
@@ -16,6 +16,7 @@ interface DiagramPanelProps {
   deleteTable: (tableId: string) => Promise<void>
   deleteRelationship: (relationshipId: string) => Promise<void>
   onEditRelationship?: (relationship: any) => void
+  onEditTable?: (table: any) => void
 }
 
 export const DiagramPanel: React.FC<DiagramPanelProps> = ({
@@ -24,14 +25,22 @@ export const DiagramPanel: React.FC<DiagramPanelProps> = ({
   setProjects,
   deleteTable,
   deleteRelationship,
-  onEditRelationship
+  onEditRelationship,
+  onEditTable
 }) => {
   const diagramRef = useRef<HTMLDivElement>(null)
+  // 가장 최근에 선택된 테이블 ID (항상 최상단 유지)
+  const [topTableId, setTopTableId] = useState<string | null>(null)
+
+  // 프로젝트가 변경될 때 topTableId 초기화
+  useEffect(() => {
+    setTopTableId(null)
+  }, [currentProject?.id])
   
   const { handlePanStart, isPanning, viewOffset } = useDiagramPanning({ diagramRef })
 
   // 자동저장 시스템
-  const { addPendingChange, saveChanges, isSaving, hasUnsavedChanges, pendingChangesCount } = useAutoSave({
+  const { addPendingChange, saveChanges, isSaving, hasUnsavedChanges, pendingChangesCount, countdown } = useAutoSave({
     projectId: currentProject?.id || null,
     onSaveStart: () => console.log('🔄 저장 시작...'),
     onSaveComplete: () => console.log('✅ 저장 완료!'),
@@ -41,6 +50,9 @@ export const DiagramPanel: React.FC<DiagramPanelProps> = ({
   // 드래그 완료 콜백
   const handleDragComplete = useCallback((result: { tableId: string; finalPosition: { x: number; y: number }; hasChanged: boolean } | undefined) => {
     if (!result || !result.hasChanged || !currentProject) return
+
+    // 드래그 완료된 테이블을 최상단으로 설정
+    setTopTableId(result.tableId)
 
     // 전역 상태 업데이트 (즉시)
     const updatedProject = {
@@ -68,6 +80,12 @@ export const DiagramPanel: React.FC<DiagramPanelProps> = ({
     onDragComplete: handleDragComplete
   })
 
+  // 테이블 선택 핸들러 (최상단으로 설정)
+  const handleTableMouseDown = useCallback((e: React.MouseEvent, tableId: string) => {
+    setTopTableId(tableId)  // 선택된 테이블을 즉시 최상단으로
+    handleMouseDown(e, tableId)
+  }, [handleMouseDown])
+
   const { tableDimensions, registerTableRef } = useTableDimensions(
     currentProject?.tables || []
   )
@@ -86,7 +104,10 @@ export const DiagramPanel: React.FC<DiagramPanelProps> = ({
         {hasUnsavedChanges && (
           <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-3 py-1 rounded-md text-sm flex items-center space-x-2">
             <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
-            <span>{pendingChangesCount}개 변경사항 (10초 후 자동저장)</span>
+            <span>
+              {pendingChangesCount}개 변경사항 
+              {countdown > 0 ? ` (${countdown}초 후 자동저장)` : ' (저장 중...)'}
+            </span>
           </div>
         )}
         
@@ -175,6 +196,7 @@ export const DiagramPanel: React.FC<DiagramPanelProps> = ({
                     }}
                     draggedTableId={isRelated ? draggedTable : null}
                     draggedTablePosition={isRelated ? (draggedPosition || undefined) : undefined}
+                    getTablePosition={isRelated ? getTablePosition : undefined}
                   />
                 )
               })}
@@ -188,10 +210,15 @@ export const DiagramPanel: React.FC<DiagramPanelProps> = ({
                   key={table.id}
                   table={table}
                   isDragged={draggedTable === table.id}
-                  onMouseDown={(e) => handleMouseDown(e, table.id)}
+                  isTopTable={topTableId === table.id}
+                  onMouseDown={(e) => handleTableMouseDown(e, table.id)}
                   onDelete={() => deleteTable(table.id)}
                   onRegisterRef={registerTableRef}
                   position={getTablePosition(table.id)}
+                  onEdit={(table) => {
+                    setTopTableId(null) // 편집 모드 진입 시 선택 해제
+                    onEditTable?.(table)
+                  }}
                 />
               ))}
           </div>

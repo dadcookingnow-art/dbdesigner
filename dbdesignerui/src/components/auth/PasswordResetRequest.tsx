@@ -7,7 +7,7 @@ export default function PasswordResetRequest() {
     const navigate = useNavigate();
     const [email, setEmail] = useState("");
     const [isLoading, setIsLoading] = useState(false);
-    const [status, setStatus] = useState<{
+    const [, setStatus] = useState<{
         type: "error" | "success" | "idle";
         message: string;
     }>({ type: "idle", message: "" });

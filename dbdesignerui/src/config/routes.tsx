@@ -2,7 +2,7 @@ import { RouteObject } from 'react-router-dom';
 import DatabaseDesigner from '../components/DatabaseDesigner';
 import Login from '../components/auth/Login';
 import Register from '../components/auth/Register';
-import PasswordResetRequest from '../components/auth/PasswordResetRequest';
+// import PasswordResetRequest from '../components/auth/PasswordResetRequest'; // 현재 라우트에서 사용하지 않음
 import PasswordResetConfirm from '../components/auth/PasswordResetConfirm';
 import TestPage from '../components/auth/TestPage';
 import ProjectList from '../components/ProjectList';

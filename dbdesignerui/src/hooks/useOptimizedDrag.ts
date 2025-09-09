@@ -41,7 +41,10 @@ export const useOptimizedDrag = ({
     const table = currentProject?.tables.find(t => t.id === tableId)
     if (!table) return
 
-    const rect = e.currentTarget.getBoundingClientRect()
+    const currentTarget = e.currentTarget as HTMLElement
+    if (!currentTarget) return
+
+    const rect = currentTarget.getBoundingClientRect()
     const diagramRect = diagramRef.current?.getBoundingClientRect()
     if (!diagramRect) return
 

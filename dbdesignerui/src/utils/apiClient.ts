@@ -97,7 +97,7 @@ class ApiClient {
 
             // 기타 HTTP 에러 처리
             if (!response.ok) {
-                const errorText = await response.text();
+                await response.text(); // 에러 텍스트 읽기만 하고 사용하지 않음
                 throw new Error(`서버 오류: ${response.status} ${response.statusText}`);
             }
 

@@ -44,8 +44,13 @@ echo [SCHEMA SERVICE]
 echo   Documentation: http://localhost:8000/api/schema/docs
 echo   Get Tables:    GET  /api/schema/projects/{id}/tables
 echo   Create Table:  POST /api/schema/projects/{id}/tables
+echo   Update Table:  PUT  /api/schema/projects/{id}/tables/{table_id}
+echo   Delete Table:  DEL  /api/schema/projects/{id}/tables/{table_id}
+echo   Update Position: PUT  /api/schema/projects/{id}/tables/{table_id}/position
 echo   Get Relations: GET  /api/schema/projects/{id}/relationships
 echo   Create Relation: POST /api/schema/projects/{id}/relationships
+echo   Update Relation: PUT  /api/schema/projects/{id}/relationships/{rel_id}
+echo   Delete Relation: DEL  /api/schema/projects/{id}/relationships/{rel_id}
 echo.
 echo [AI SERVICE]
 echo   Documentation: http://localhost:8000/api/ai/docs

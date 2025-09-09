@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react'
+import React from 'react'
 import { Relationship, Project } from '../../types'
 import { calculateConnectionPoints } from '../../utils/relationshipUtils'
 
@@ -22,6 +22,7 @@ interface RelationshipLineProps {
   onEdit?: (relationship: Relationship) => void
   draggedTableId?: string | null
   draggedTablePosition?: { x: number; y: number }
+  getTablePosition?: (tableId: string) => { x: number; y: number }
 }
 
 const RelationshipLineComponent: React.FC<RelationshipLineProps> = ({
@@ -32,7 +33,8 @@ const RelationshipLineComponent: React.FC<RelationshipLineProps> = ({
   onDelete,
   onEdit,
   draggedTableId,
-  draggedTablePosition
+  draggedTablePosition,
+  getTablePosition
 }) => {
   const fromTable = currentProject.tables.find(t => t.name === (relationship.fromTable || relationship.from_table))
   const toTable = currentProject.tables.find(t => t.name === (relationship.toTable || relationship.to_table))
@@ -46,34 +48,19 @@ const RelationshipLineComponent: React.FC<RelationshipLineProps> = ({
     return null
   }
 
-  // 이 관계선이 드래그 중인 테이블과 관련있는지 확인
-  const isRelatedToDraggedTable = draggedTableId && (
-    draggedTableId === fromTable.id || draggedTableId === toTable.id
-  )
 
-  // 실시간 위치 및 관계선 계산 (선택적 최적화)
-  const { pathData, midX, midY } = useMemo(() => {
-    // 드래그 중인 테이블과 관련없으면 기존 위치 사용
-    if (!isRelatedToDraggedTable) {
-      const fromDimensions = tableDimensions[fromTable.id]
-      const toDimensions = tableDimensions[toTable.id]
-      
-      return calculateConnectionPoints(
-        fromTable, 
-        toTable, 
-        fromDimensions, 
-        toDimensions,
-        svgOffset
-      )
-    }
-
+  // 실시간 위치 및 관계선 계산 (getTablePosition 우선, fallback으로 draggedTablePosition)
+  const { pathData, midX, midY } = (() => {
     // 관련된 관계선만 실시간 위치 계산
-    const fromPosition = draggedTableId === fromTable.id && draggedTablePosition 
-      ? draggedTablePosition 
-      : fromTable.position
-    const toPosition = draggedTableId === toTable.id && draggedTablePosition 
-      ? draggedTablePosition 
-      : toTable.position
+    let fromPosition = fromTable.position
+    let toPosition = toTable.position
+    
+    if (draggedTableId === fromTable.id) {
+      fromPosition = getTablePosition ? getTablePosition(fromTable.id) : (draggedTablePosition || fromTable.position)
+    }
+    if (draggedTableId === toTable.id) {
+      toPosition = getTablePosition ? getTablePosition(toTable.id) : (draggedTablePosition || toTable.position)
+    }
     
     const fromTableWithRealTimePosition = { ...fromTable, position: fromPosition }
     const toTableWithRealTimePosition = { ...toTable, position: toPosition }
@@ -88,23 +75,7 @@ const RelationshipLineComponent: React.FC<RelationshipLineProps> = ({
       toDimensions,
       svgOffset
     )
-  }, [
-    // 기본 의존성 (항상 필요)
-    fromTable.id, 
-    toTable.id, 
-    fromTable.position.x,
-    fromTable.position.y,
-    toTable.position.x,
-    toTable.position.y,
-    tableDimensions[fromTable.id], 
-    tableDimensions[toTable.id],
-    svgOffset?.x,
-    svgOffset?.y,
-    // 관련된 관계선만 드래그 상태에 의존
-    isRelatedToDraggedTable ? draggedTableId : null,
-    isRelatedToDraggedTable ? draggedTablePosition?.x : null,
-    isRelatedToDraggedTable ? draggedTablePosition?.y : null
-  ])
+  })()
 
   const handleDelete = async () => {
     try {
@@ -257,5 +228,5 @@ const RelationshipLineComponent: React.FC<RelationshipLineProps> = ({
   )
 }
 
-// 메모이제이션으로 불필요한 리렌더링 방지
-export const RelationshipLine = React.memo(RelationshipLineComponent)
+// React.memo 제거 - 드래그 중 실시간 업데이트를 위해
+export const RelationshipLine = RelationshipLineComponent

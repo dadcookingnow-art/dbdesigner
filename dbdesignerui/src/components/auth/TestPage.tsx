@@ -1,4 +1,4 @@
-import React from "react";
+// import React from "react"; // JSX에서 React 자동 import됨
 import { useNavigate } from "react-router-dom";
 
 export default function TestPage() {

@@ -1,25 +1,30 @@
-import React, { useRef, useEffect } from 'react'
+import React, { useRef, useEffect, useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import { Table, Index } from '../../types'
 
 interface TableCardProps {
   table: Table
   isDragged: boolean
+  isTopTable?: boolean
   onMouseDown: (e: React.MouseEvent) => void
   onDelete: () => Promise<void>
   onRegisterRef?: (tableId: string, ref: React.RefObject<HTMLDivElement>) => void
   position?: { x: number; y: number }
+  onEdit?: (table: Table) => void
 }
 
 export const TableCard: React.FC<TableCardProps> = ({
   table,
   isDragged,
+  isTopTable = false,
   onMouseDown,
   onDelete,
   onRegisterRef,
-  position
+  position,
+  onEdit
 }) => {
   const tableRef = useRef<HTMLDivElement>(null)
+  const [lastClickTime, setLastClickTime] = useState<number>(0)
 
   // ref 등록
   useEffect(() => {
@@ -31,10 +36,43 @@ export const TableCard: React.FC<TableCardProps> = ({
   // 실시간 위치 (드래그 중이면 드래그 위치, 아니면 저장된 위치)
   const currentPosition = position || table.position
 
+  // z-index 계산: 드래그 중 > 최상단 선택 > 일반
+  const getZIndex = () => {
+    if (isDragged) return 9999      // 드래그 중: 최상단
+    if (isTopTable) return 100      // 최근 선택: 중간 상단
+    return 10                       // 일반: 관계선 위
+  }
+
   // 필드가 포함된 인덱스 찾기
   const getFieldIndexes = (fieldName: string): Index[] => {
     if (!table.indexes) return []
     return table.indexes.filter(index => index.fields.includes(fieldName))
+  }
+
+  // 마우스 다운 핸들러 - 더블클릭 체크
+  const handleMouseDown = (e: React.MouseEvent) => {
+    const currentTime = Date.now()
+    const timeDiff = currentTime - lastClickTime
+    
+    // 더블클릭 감지 (300ms 이내)
+    if (timeDiff < 300) {
+      e.preventDefault()
+      e.stopPropagation()
+      if (onEdit) {
+        onEdit(table)
+      }
+      setLastClickTime(0) // 더블클릭 처리 후 리셋
+      return
+    }
+    
+    setLastClickTime(currentTime)
+    onMouseDown(e)
+  }
+
+  // 더블클릭 핸들러 - 기본 이벤트만 방지
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
   }
   return (
     <div
@@ -45,11 +83,12 @@ export const TableCard: React.FC<TableCardProps> = ({
       style={{
         left: `${currentPosition.x}px`,
         top: `${currentPosition.y}px`,
-        zIndex: isDragged ? 10 : 2,
+        zIndex: getZIndex(),
         transform: 'scale(0.8)',
         transformOrigin: 'top left'
       }}
-      onMouseDown={onMouseDown}
+      onMouseDown={handleMouseDown}
+      onDoubleClick={handleDoubleClick}
     >
       {/* Table Header */}
       <div className="bg-blue-600 text-white px-4 py-3 rounded-t-lg flex items-center justify-between">

@@ -24,6 +24,7 @@ const DatabaseDesigner = () => {
         deleteRelationship,
         updateRelationship,
         addTable,
+        updateTable,
         loadProject,
     } = useProjectState();
 
@@ -43,6 +44,7 @@ const DatabaseDesigner = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [editingRelationship, setEditingRelationship] = useState<any>(null);
+    const [editingTable, setEditingTable] = useState<any>(null);
 
     // 프로젝트 ID가 있으면 해당 프로젝트 로드
     useEffect(() => {
@@ -143,6 +145,28 @@ const DatabaseDesigner = () => {
         setEditingRelationship(null);
     };
 
+    // 테이블 편집 핸들러들
+    const handleEditTable = (table: any) => {
+        console.log('🔧 DatabaseDesigner: 테이블 편집 요청', table);
+        setEditingTable(table);
+        setShowTableCreationModal(true);
+    };
+
+    const handleUpdateTable = async (updatedTable: any) => {
+        try {
+            await updateTable(updatedTable);
+            setEditingTable(null);
+        } catch (error: any) {
+            console.error('테이블 업데이트 실패:', error);
+            // 에러 처리 (토스트 메시지 등)
+        }
+    };
+
+    const handleCloseTableModal = () => {
+        setShowTableCreationModal(false);
+        setEditingTable(null);
+    };
+
     return (
         <div className="h-screen bg-gradient-to-br from-slate-50 to-blue-50 overflow-hidden" style={{fontSize: '0.8em'}}>
             <Header
@@ -172,6 +196,7 @@ const DatabaseDesigner = () => {
                     deleteTable={deleteTable}
                     deleteRelationship={deleteRelationship}
                     onEditRelationship={handleEditRelationship}
+                    onEditTable={handleEditTable}
                 />
             </div>
 
@@ -192,8 +217,10 @@ const DatabaseDesigner = () => {
 
             <TableCreationModal
                 isOpen={showTableCreationModal}
-                onClose={() => setShowTableCreationModal(false)}
+                onClose={handleCloseTableModal}
                 onCreateTable={addTable}
+                onUpdateTable={handleUpdateTable}
+                editingTable={editingTable}
                 dbType={currentProject?.db_type}
             />
 

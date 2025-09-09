@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { apiClient } from "../../utils/apiClient";
 
@@ -38,7 +38,7 @@ export default function PasswordResetConfirm() {
         }
 
         try {
-            const data = await apiClient.post('/user/auth/password-reset/confirm', {
+            await apiClient.post('/user/auth/password-reset/confirm', {
                 email: formData.email,
                 reset_code: formData.reset_code,
                 new_password: formData.new_password

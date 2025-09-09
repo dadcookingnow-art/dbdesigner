@@ -6,7 +6,7 @@ interface UseDiagramPanningProps {
 
 export const useDiagramPanning = ({ diagramRef }: UseDiagramPanningProps) => {
   const [isPanning, setIsPanning] = useState(false)
-  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 })
+  // const [panOffset, setPanOffset] = useState({ x: 0, y: 0 }) // 현재 사용하지 않음
   const [panStart, setPanStart] = useState({ x: 0, y: 0 })
   const [viewOffset, setViewOffset] = useState({ x: 0, y: 0 })
 

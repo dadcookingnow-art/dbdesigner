@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, Depends, status
 from shared.auth import verify_token
 from shared.models import ChatRequest, ChatResponse
 from shared.redis_client import redis_client
+from .gemini_service import get_gemini_service
 import json
 import uuid
 from typing import List, Dict, Any
@@ -11,12 +12,23 @@ app = FastAPI(title="AI Service", version="1.0.0")
 async def parse_chat_to_tables(message: str) -> List[Dict[str, Any]]:
     """
     AI 채팅 메시지를 분석해서 테이블 구조를 생성하는 함수
-    실제 환경에서는 OpenAI API나 다른 LLM을 사용
+    Gemini API를 사용하여 지능적인 테이블 구조 생성
+    """
+    try:
+        gemini_service = get_gemini_service()
+        return await gemini_service.parse_message_to_tables(message)
+    except Exception as e:
+        print(f"Gemini 서비스 초기화 실패: {str(e)}")
+        # Fallback to simple keyword matching
+        return _fallback_keyword_matching(message)
+
+def _fallback_keyword_matching(message: str) -> List[Dict[str, Any]]:
+    """
+    Gemini 서비스 실패 시 폴백 키워드 매칭
     """
     message_lower = message.lower()
     suggested_tables = []
     
-    # 간단한 키워드 기반 테이블 생성 로직 (실제로는 LLM 사용)
     if "사용자" in message or "user" in message_lower:
         suggested_tables.append({
             "name": "users",
@@ -40,56 +52,6 @@ async def parse_chat_to_tables(message: str) -> List[Dict[str, Any]]:
                 {"name": "created_at", "type": "TIMESTAMP", "isPrimaryKey": False, "isRequired": True}
             ],
             "position": {"x": 400, "y": 100}
-        })
-    
-    if "댓글" in message or "comment" in message_lower:
-        suggested_tables.append({
-            "name": "comments",
-            "fields": [
-                {"name": "id", "type": "INTEGER", "isPrimaryKey": True, "isRequired": True},
-                {"name": "content", "type": "TEXT", "isPrimaryKey": False, "isRequired": True},
-                {"name": "post_id", "type": "INTEGER", "isPrimaryKey": False, "isRequired": True, "isForeignKey": True, "referencedTable": "posts", "referencedField": "id"},
-                {"name": "user_id", "type": "INTEGER", "isPrimaryKey": False, "isRequired": True, "isForeignKey": True, "referencedTable": "users", "referencedField": "id"},
-                {"name": "created_at", "type": "TIMESTAMP", "isPrimaryKey": False, "isRequired": True}
-            ],
-            "position": {"x": 700, "y": 100}
-        })
-    
-    if "카테고리" in message or "category" in message_lower:
-        suggested_tables.append({
-            "name": "categories",
-            "fields": [
-                {"name": "id", "type": "INTEGER", "isPrimaryKey": True, "isRequired": True},
-                {"name": "name", "type": "VARCHAR(100)", "isPrimaryKey": False, "isRequired": True},
-                {"name": "description", "type": "TEXT", "isPrimaryKey": False, "isRequired": False}
-            ],
-            "position": {"x": 100, "y": 400}
-        })
-    
-    if "주문" in message or "order" in message_lower:
-        suggested_tables.append({
-            "name": "orders",
-            "fields": [
-                {"name": "id", "type": "INTEGER", "isPrimaryKey": True, "isRequired": True},
-                {"name": "user_id", "type": "INTEGER", "isPrimaryKey": False, "isRequired": True, "isForeignKey": True, "referencedTable": "users", "referencedField": "id"},
-                {"name": "total_amount", "type": "DECIMAL(10,2)", "isPrimaryKey": False, "isRequired": True},
-                {"name": "status", "type": "VARCHAR(50)", "isPrimaryKey": False, "isRequired": True},
-                {"name": "created_at", "type": "TIMESTAMP", "isPrimaryKey": False, "isRequired": True}
-            ],
-            "position": {"x": 400, "y": 400}
-        })
-    
-    if "상품" in message or "product" in message_lower:
-        suggested_tables.append({
-            "name": "products",
-            "fields": [
-                {"name": "id", "type": "INTEGER", "isPrimaryKey": True, "isRequired": True},
-                {"name": "name", "type": "VARCHAR(255)", "isPrimaryKey": False, "isRequired": True},
-                {"name": "description", "type": "TEXT", "isPrimaryKey": False, "isRequired": False},
-                {"name": "price", "type": "DECIMAL(10,2)", "isPrimaryKey": False, "isRequired": True},
-                {"name": "stock", "type": "INTEGER", "isPrimaryKey": False, "isRequired": True}
-            ],
-            "position": {"x": 700, "y": 400}
         })
     
     return suggested_tables

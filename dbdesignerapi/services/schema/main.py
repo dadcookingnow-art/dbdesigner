@@ -95,20 +95,26 @@ async def create_table(
         project_id=new_table.project_id
     )
 
-@app.put("/tables/{table_id}", response_model=TableResponse)
+@app.put("/projects/{project_id}/tables/{table_id}", response_model=TableResponse)
 async def update_table(
+    project_id: str,
     table_id: str,
     table_data: TableUpdate,
     current_user: dict = Depends(verify_token),
     db: AsyncSession = Depends(get_database)
 ):
-    result = await db.execute(select(Table).where(Table.id == table_id))
+    result = await db.execute(
+        select(Table).where(
+            Table.id == table_id,
+            Table.project_id == project_id
+        )
+    )
     table = result.scalar_one_or_none()
     
     if not table:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Table not found"
+            detail="Table not found in this project"
         )
     
     if table_data.name is not None:
@@ -155,19 +161,25 @@ async def update_table(
         project_id=table.project_id
     )
 
-@app.delete("/tables/{table_id}")
+@app.delete("/projects/{project_id}/tables/{table_id}")
 async def delete_table(
+    project_id: str,
     table_id: str,
     current_user: dict = Depends(verify_token),
     db: AsyncSession = Depends(get_database)
 ):
-    result = await db.execute(select(Table).where(Table.id == table_id))
+    result = await db.execute(
+        select(Table).where(
+            Table.id == table_id,
+            Table.project_id == project_id
+        )
+    )
     table = result.scalar_one_or_none()
     
     if not table:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Table not found"
+            detail="Table not found in this project"
         )
     
     await db.delete(table)
@@ -229,19 +241,66 @@ async def create_relationship(
         project_id=new_relationship.project_id
     )
 
-@app.delete("/relationships/{relationship_id}")
-async def delete_relationship(
+@app.put("/projects/{project_id}/relationships/{relationship_id}", response_model=RelationshipResponse)
+async def update_relationship(
+    project_id: str,
     relationship_id: str,
+    relationship_data: RelationshipCreate,
     current_user: dict = Depends(verify_token),
     db: AsyncSession = Depends(get_database)
 ):
-    result = await db.execute(select(Relationship).where(Relationship.id == relationship_id))
+    result = await db.execute(
+        select(Relationship).where(
+            Relationship.id == relationship_id,
+            Relationship.project_id == project_id
+        )
+    )
     relationship = result.scalar_one_or_none()
     
     if not relationship:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Relationship not found"
+            detail="Relationship not found in this project"
+        )
+    
+    relationship.from_table = relationship_data.from_table
+    relationship.from_field = relationship_data.from_field
+    relationship.to_table = relationship_data.to_table
+    relationship.to_field = relationship_data.to_field
+    relationship.type = relationship_data.type.value
+    
+    await db.commit()
+    await db.refresh(relationship)
+    
+    return RelationshipResponse(
+        id=relationship.id,
+        from_table=relationship.from_table,
+        from_field=relationship.from_field,
+        to_table=relationship.to_table,
+        to_field=relationship.to_field,
+        type=relationship.type,
+        project_id=relationship.project_id
+    )
+
+@app.delete("/projects/{project_id}/relationships/{relationship_id}")
+async def delete_relationship(
+    project_id: str,
+    relationship_id: str,
+    current_user: dict = Depends(verify_token),
+    db: AsyncSession = Depends(get_database)
+):
+    result = await db.execute(
+        select(Relationship).where(
+            Relationship.id == relationship_id,
+            Relationship.project_id == project_id
+        )
+    )
+    relationship = result.scalar_one_or_none()
+    
+    if not relationship:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Relationship not found in this project"
         )
     
     await db.delete(relationship)
