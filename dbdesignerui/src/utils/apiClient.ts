@@ -83,17 +83,21 @@ class ApiClient {
             
             console.log(`📡 API 응답: ${response.status} ${response.statusText}`);
 
-            // 401 에러 처리 (토큰 만료)
+            // 401 에러 처리
             if (response.status === 401) {
-                console.warn('401 인증 오류: 토큰이 만료되었습니다.');
-                this.handleLogout();
-                throw new Error('인증이 만료되었습니다. 다시 로그인해주세요.');
+                if (requireAuth) {
+                    // 인증이 필요한 요청에서 401 → 토큰 만료
+                    this.handleLogout();
+                    throw new Error('인증이 만료되었습니다. 다시 로그인해주세요.');
+                } else {
+                    // 인증이 필요없는 요청에서 401 → 로그인 실패 등
+                    throw new Error('로그인 정보가 올바르지 않습니다.');
+                }
             }
 
             // 기타 HTTP 에러 처리
             if (!response.ok) {
                 const errorText = await response.text();
-                console.error(`❌ API 에러: ${response.status} ${response.statusText}`, errorText);
                 throw new Error(`서버 오류: ${response.status} ${response.statusText}`);
             }
 

@@ -13,11 +13,8 @@ interface AuthResponse {
 
 export const authService = {
     async login(loginData: LoginForm): Promise<AuthResponse> {
-        try {
-            return await apiClient.post<AuthResponse>('/user/auth/login', loginData, { requireAuth: false });
-        } catch (error: any) {
-            throw new Error("로그인에 실패했습니다.");
-        }
+        // apiClient에서 이미 적절한 에러 메시지를 제공하므로 그대로 전달
+        return await apiClient.post<AuthResponse>('/user/auth/login', loginData, { requireAuth: false });
     },
 
     async register(registerData: RegisterForm): Promise<AuthResponse> {

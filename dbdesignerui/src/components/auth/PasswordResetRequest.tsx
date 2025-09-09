@@ -1,32 +1,44 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiClient } from "../../utils/apiClient";
+// import FormMessage from "../common/FormMessage";
 
 export default function PasswordResetRequest() {
     const navigate = useNavigate();
     const [email, setEmail] = useState("");
     const [isLoading, setIsLoading] = useState(false);
-    const [message, setMessage] = useState("");
-    const [error, setError] = useState("");
+    const [status, setStatus] = useState<{
+        type: "error" | "success" | "idle";
+        message: string;
+    }>({ type: "idle", message: "" });
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
-        setError("");
-        setMessage("");
+        setStatus({ type: "idle", message: "" });
 
         try {
-            const data = await apiClient.post('/user/auth/password-reset/request', { email }, { requireAuth: false });
-            
-            setMessage(
-                `패스워드 재설정 코드가 ${email}로 발송되었습니다. (${data.expires_in_minutes}분 후 만료)`
+            const data = await apiClient.post(
+                "/user/auth/password-reset/request",
+                { email },
+                { requireAuth: false }
             );
+
+            setStatus({
+                type: "success",
+                message: `패스워드 재설정 코드가 ${email}로 발송되었습니다. (${data.expires_in_minutes}분 후 만료)`,
+            });
             // 2초 후 재설정 확인 페이지로 이동
             setTimeout(() => {
-                navigate(`/password-reset/confirm?email=${encodeURIComponent(email)}`);
+                navigate(
+                    `/password-reset/confirm?email=${encodeURIComponent(email)}`
+                );
             }, 2000);
         } catch (err: any) {
-            setError(err.message || "패스워드 재설정 요청에 실패했습니다.");
+            setStatus({
+                type: "error",
+                message: err.message || "패스워드 재설정 요청에 실패했습니다.",
+            });
         } finally {
             setIsLoading(false);
         }
@@ -57,17 +69,12 @@ export default function PasswordResetRequest() {
                         />
                     </div>
 
-                    {error && (
-                        <div className="text-red-600 text-sm text-center bg-red-50 p-3 rounded-md">
-                            {error}
-                        </div>
-                    )}
-
-                    {message && (
-                        <div className="text-green-600 text-sm text-center bg-green-50 p-3 rounded-md">
-                            {message}
-                        </div>
-                    )}
+                    {/* {status.type !== "idle" && (
+                        <FormMessage
+                            type={status.type}
+                            message={status.message}
+                        />
+                    )} */}
 
                     <div>
                         <button

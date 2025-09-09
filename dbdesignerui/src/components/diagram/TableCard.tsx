@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react'
-import { Trash2, Key, Link, Asterisk, Search } from 'lucide-react'
+import { Trash2 } from 'lucide-react'
 import { Table, Index } from '../../types'
 
 interface TableCardProps {
@@ -8,6 +8,7 @@ interface TableCardProps {
   onMouseDown: (e: React.MouseEvent) => void
   onDelete: () => Promise<void>
   onRegisterRef?: (tableId: string, ref: React.RefObject<HTMLDivElement>) => void
+  position?: { x: number; y: number }
 }
 
 export const TableCard: React.FC<TableCardProps> = ({
@@ -15,7 +16,8 @@ export const TableCard: React.FC<TableCardProps> = ({
   isDragged,
   onMouseDown,
   onDelete,
-  onRegisterRef
+  onRegisterRef,
+  position
 }) => {
   const tableRef = useRef<HTMLDivElement>(null)
 
@@ -25,6 +27,9 @@ export const TableCard: React.FC<TableCardProps> = ({
       onRegisterRef(table.id, tableRef)
     }
   }, [table.id, onRegisterRef])
+
+  // 실시간 위치 (드래그 중이면 드래그 위치, 아니면 저장된 위치)
+  const currentPosition = position || table.position
 
   // 필드가 포함된 인덱스 찾기
   const getFieldIndexes = (fieldName: string): Index[] => {
@@ -38,8 +43,8 @@ export const TableCard: React.FC<TableCardProps> = ({
         isDragged ? 'border-blue-500 shadow-xl' : 'border-gray-200'
       }`}
       style={{
-        left: `${table.position.x}px`,
-        top: `${table.position.y}px`,
+        left: `${currentPosition.x}px`,
+        top: `${currentPosition.y}px`,
         zIndex: isDragged ? 10 : 2,
         transform: 'scale(0.8)',
         transformOrigin: 'top left'
